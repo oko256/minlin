@@ -1,0 +1,213 @@
+# CI WORKFLOW
+# ===========
+# Parallel jobs on pushes to main branches, and on all pull requests, for:
+# 1. clang-format check
+# 2. build, test, and analyze (testing coverage, static analysis, sanitizers other than TSan)
+# 3. build and test with TSan
+# 4. typos spell check
+
+name: CI
+on:
+  push:
+    # List all long-running branches here that you want to run CI on:
+    branches: [main, master]
+  pull_request:
+
+# Cancel redundant runs: if a new commit is pushed to a PR branch, cancel the previous runs
+# for that branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  # Full code coverage alert threshold in % (set to 0 to disable alert)
+  CODE_COVERAGE_ALERT_THRESHOLD: 80
+  # PR diff code coverage alert threshold in % (set to 0 to disable alert)
+  PR_DIFF_COVERAGE_ALERT_THRESHOLD: 80
+
+jobs:
+  # =========================
+  # Job 1: clang-format check
+  # =========================
+
+  formatting:
+    name: Formatting Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Recommended for checkout action
+    strategy:
+      matrix:
+        path:
+          - 'src'
+          - 'include'
+          - 'test'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run clang-format style check for C/C++/Protobuf programs.
+        uses: jidicula/clang-format-action@654a770daa28443dd111d133e4083e21c1075674 # v4.18.0
+        with:
+          check-path: ${{ matrix.path }}
+          clang-format-version: 19
+
+  # ===============================
+  # Job 2: build, test, and analyze
+  # ===============================
+
+  build:
+    name: Build, Test, and Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Recommended for checkout action
+      pull-requests: write # Allow commenting on PR
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 50
+
+      # Fetch also the base branch if this is a PR for diff code coverage reporting
+      - name: Fetch base branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=50
+
+      # Install tools
+
+      - name: Install CMake
+        uses: lukka/get-cmake@ea83089aa35e08e459464341fe24ad024ee2466f # v4.3.1
+
+      - name: Install analysis and coverage tools
+        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # v1.6.0
+        with:
+          packages: clang-tidy-19 cppcheck lcov python3 pipx
+          version: 1.0
+      - name: Install fastcov and diff-cover
+        run: |
+          pipx install fastcov==1.16 diff-cover==10.2.0
+
+      # Configure and build using CI preset from CMakePresets.json.
+      # Static analysis like cppcheck and clang-tidy are run as part of the build, and the
+      # findings are collected from the output.
+
+      - name: Configure (CMake preset)
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
+        with:
+          configurePreset: 'ci'
+
+      - name: Build with static analysis (CMake preset)
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
+        with:
+          buildPreset: 'ci'
+
+      # Run unit tests and generate code coverage report
+
+      - name: Run tests
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
+        with:
+          testPreset: 'ci'
+
+      - name: Generate code coverage report
+        run: cmake --build build --target coverage
+
+      - name: Report code coverage
+        uses: zgosalvez/github-actions-report-lcov@242badeaf8e48cbad6254e03c270bc80d1a72cc5 # v7.0.8
+        with:
+          coverage-files: build/*-fastcov.info
+          minimum-coverage: ${{ env.CODE_COVERAGE_ALERT_THRESHOLD }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          artifact-name: coverage-report
+          update-comment: true
+
+      # If this is a PR, post also a code coverage report from the diff of changes
+
+      - name: Generate PR code diff coverage report
+        if: github.event_name == 'pull_request'
+        id: diffcover
+        run: |
+          set +e
+          diff-cover --format=markdown:build/diff-cover.md \
+            --compare-branch="origin/${{ github.base_ref }}" \
+            --fail-under=${PR_DIFF_COVERAGE_ALERT_THRESHOLD} \
+            build/*-fastcov.info
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+          # Push all headings in output markdown one level down for nicer formatting
+          sed -i 's/^#/##/' build/diff-cover.md
+
+      - name: Add warning to diff coverage report if coverage is too low
+        if: github.event_name == 'pull_request' && steps.diffcover.outputs.exit_code != '0'
+        run: |
+          awk "
+          BEGIN { added=0 }
+          /^### Summary/ {
+            print;
+            print \"\";
+            print \"> [!CAUTION]\";
+            print \"> Diff coverage is below the required threshold (${PR_DIFF_COVERAGE_ALERT_THRESHOLD} %).\";
+            print \"> Please add or update tests to cover the changes in this PR.\";
+            added=1;
+            next;
+          }
+          { print }
+          " build/diff-cover.md > build/diff-cover.tmp && mv -f build/diff-cover.tmp build/diff-cover.md
+
+      - name: Update PR code diff coverage comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@70d2764d1a7d5d9560b100cbea0077fc8f633987 # v3.0.2
+        with:
+          path: build/diff-cover.md
+          header: diff-coverage
+
+      - name: Fail if PR code diff coverage is too low
+        if: github.event_name == 'pull_request' && steps.diffcover.outputs.exit_code != '0'
+        run: |
+          echo "::error::Failed because PR diff coverage is below the required threshold (${PR_DIFF_COVERAGE_ALERT_THRESHOLD} %)."
+          exit 1
+
+  # ===============================
+  # Job 3: build and test with TSan
+  # ===============================
+
+  build-tsan:
+    name: Build and Test with TSan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Recommended for checkout action
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Install tools
+      - name: Install CMake
+        uses: lukka/get-cmake@ea83089aa35e08e459464341fe24ad024ee2466f # v4.3.1
+
+      # Configure and build using CI-TSan preset from CMakePresets.json.
+
+      - name: Configure with TSan (CMake preset)
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
+        with:
+          configurePreset: 'ci-tsan'
+
+      - name: Build with TSan (CMake preset)
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
+        with:
+          buildPreset: 'ci-tsan'
+
+      # Run unit tests
+
+      - name: Run tests with TSan
+        uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
+        with:
+          testPreset: 'ci-tsan'
+
+  # ========================
+  # Job 4: typos spell check
+  # ========================
+
+  typos:
+    name: Spell Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Recommended for checkout action
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Check spelling
+        uses: crate-ci/typos@631208b7aac2daa8b707f55e7331f9112b0e062d # v1.44.0

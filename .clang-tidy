@@ -1,0 +1,38 @@
+---
+Checks: >
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  clang-diagnostic-*,
+  concurrency-*,
+  cppcoreguidelines-*,-cppcoreguidelines-avoid-do-while,-cppcoreguidelines-macro-to-enum,
+  hicpp-*,-hicpp-signed-bitwise,
+  cert-*,
+  modernize-*,-modernize-use-trailing-return-type,-modernize-macro-to-enum,
+  readability-*,-readability-else-after-return,-readability-identifier-length,
+  readability-identifier-naming,
+  performance-*,
+  misc-*,-misc-include-cleaner,-misc-non-private-member-variables-in-classes
+
+CheckOptions:
+  # Identifier naming conventions
+  # Type declarations (structs, unions, enums)
+  - key: readability-identifier-naming.StructCase
+    value: lower_case
+  - key: readability-identifier-naming.UnionCase
+    value: lower_case
+  - key: readability-identifier-naming.EnumCase
+    value: lower_case
+  - key: readability-identifier-naming.TypedefCase
+    value: lower_case
+  - key: readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+  # Global variables
+  - key: readability-identifier-naming.GlobalVariablePrefix
+    value: g_
+  # Macros
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+
+# Use style from .clang-format when suggesting fixes.
+FormatStyle: file

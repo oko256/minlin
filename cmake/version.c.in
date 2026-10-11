@@ -1,0 +1,9 @@
+#include "@VERSION_PREFIX@_version.h"
+
+unsigned int @VERSION_PREFIX@_version_major()  { return @PROJECT_VERSION_MAJOR@; }
+unsigned int @VERSION_PREFIX@_version_minor()  { return @PROJECT_VERSION_MINOR@; }
+unsigned int @VERSION_PREFIX@_version_patch()  { return @PROJECT_VERSION_PATCH@; }
+const char*  @VERSION_PREFIX@_version_branch() { return "@VERSION_BRANCH@"; }
+const char*  @VERSION_PREFIX@_version_string() { return "@VERSION_BRANCH_WITH_DELIM@@PROJECT_VERSION_FULL_STRING@"; }
+const char*  @VERSION_PREFIX@_preamble()       { return "@PROJECT_NAME@ @VERSION_BRANCH_WITH_DELIM@@PROJECT_VERSION_FULL_STRING@ © @COMMIT_YEARS_STRING@ @CPACK_PACKAGE_VENDOR@"; }
+const char*  @VERSION_PREFIX@_description()    { return "@PROJECT_DESCRIPTION@"; }

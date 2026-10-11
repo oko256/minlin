@@ -1,0 +1,97 @@
+{
+  "version": 8,
+  "$schema": "https://cmake.org/cmake/help/latest/_downloads/3e2d73bff478d88a7de0de736ba5e361/schema.json",
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "ci",
+      "displayName": "CI",
+      "description": "CI configuration with most sanitizers, static analysis, and testing coverage",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "minlin_BUILD_TESTING": "ON",
+        "minlin_COVERAGE": "ON",
+        "minlin_DEVELOPER_MODE": "ON",
+        "minlin_SA_CLANG_TIDY": "ON",
+        "minlin_SA_CPPCHECK": "ON",
+        "minlin_SA_CPPCHECK_EXH": "OFF",
+        "minlin_SA_IWYU": "OFF",
+        "minlin_SANITIZER_ADDRESS": "ON",
+        "minlin_SANITIZER_LEAK": "ON",
+        "minlin_SANITIZER_UNDEFINED": "ON",
+        "minlin_SANITIZER_THREAD": "OFF",
+        "minlin_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "ci-tsan",
+      "displayName": "CI-TSan",
+      "description": "Extra CI configuration with only TSan",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-tsan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "minlin_BUILD_TESTING": "ON",
+        "minlin_COVERAGE": "OFF",
+        "minlin_DEVELOPER_MODE": "ON",
+        "minlin_SA_CLANG_TIDY": "OFF",
+        "minlin_SA_CPPCHECK": "OFF",
+        "minlin_SA_CPPCHECK_EXH": "OFF",
+        "minlin_SA_IWYU": "OFF",
+        "minlin_SANITIZER_ADDRESS": "OFF",
+        "minlin_SANITIZER_LEAK": "OFF",
+        "minlin_SANITIZER_UNDEFINED": "OFF",
+        "minlin_SANITIZER_THREAD": "ON",
+        "minlin_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "description": "Release build configuration",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "ci",
+      "configurePreset": "ci"
+    },
+    {
+      "name": "ci-tsan",
+      "configurePreset": "ci-tsan"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "ci",
+      "configurePreset": "ci",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci-tsan",
+      "configurePreset": "ci-tsan",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

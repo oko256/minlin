@@ -1,0 +1,18 @@
+#ifndef @VERSION_PREFIX@_AUTOGEN_VERSION_H
+#define @VERSION_PREFIX@_AUTOGEN_VERSION_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+unsigned int @VERSION_PREFIX@_version_major();
+unsigned int @VERSION_PREFIX@_version_minor();
+unsigned int @VERSION_PREFIX@_version_patch();
+const char*  @VERSION_PREFIX@_version_branch();
+const char*  @VERSION_PREFIX@_version_string();
+const char*  @VERSION_PREFIX@_preamble();
+const char*  @VERSION_PREFIX@_description();
+
+#ifdef __cplusplus
+}
+#endif
+#endif

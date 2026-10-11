@@ -1,0 +1,4 @@
+# Allow more stuff with unit tests for in-editor live checking.
+InheritParentConfig: true
+Checks: >
+  -cppcoreguidelines-avoid-magic-numbers,-readability-magic-numbers
