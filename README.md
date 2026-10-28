@@ -1,7 +1,8 @@
 # minLIN - Minimalistic LIN bus library
 
 minLIN is a deliberately minimalistic LIN bus library in C mainly targeting embedded devices but
-completely usable on other platforms as well.
+completely usable on other platforms as well. Proper usage example is the
+[firmware for USB LIN Card](https://github.com/oko256/usb-lin-card-fw).
 
 Supported LIN features:
 
